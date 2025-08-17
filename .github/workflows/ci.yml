@@ -1,0 +1,45 @@
+name: CI
+on:
+  push:
+    branches:
+      - main
+permissions:
+  contents: write
+  packages: write
+  attestations: write
+  id-token: write
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ghcr.io/${{github.repository}}
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-22.04
+    steps:
+      - name: 🔐 Login to Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{env.REGISTRY}}
+          username: ${{github.actor }}
+          password: ${{secrets.GITHUB_TOKEN}}
+      - name: 🐋 Docker Metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{env.IMAGE_NAME}}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            latest
+          labels: |
+            org.opencontainers.image.created=${{ env.TIMESTAMP }}
+      - name: 🐋 Build and Publish Image
+        uses: docker/build-push-action@v6
+        env:
+          SOURCE_DATE_EPOCH: ${{ env.TIMESTAMP }}
+        with:
+          push: true
+          file: Dockerfile
+          tags: ${{ steps.meta.outputs.tags }}
